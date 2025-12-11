@@ -1,0 +1,36 @@
+[
+  {"text": "bật đèn lên", "intent": "turn_on"},
+  {"text": "làm ơn bật cái đèn", "intent": "turn_on"},
+  {"text": "sáng đèn lên", "intent": "turn_on"},
+  {"text": "mở đèn", "intent": "turn_on"},
+  {"text": "tối quá", "intent": "turn_on"},
+  {"text": "kích hoạt đèn", "intent": "turn_on"},
+  
+  {"text": "tắt đèn đi", "intent": "turn_off"},
+  {"text": "ngắt điện đèn", "intent": "turn_off"},
+  {"text": "tối om đi", "intent": "turn_off"},
+  {"text": "tắt hết đèn", "intent": "turn_off"},
+
+  {"text": "mở rèm ra", "intent": "open_curtain"},
+  {"text": "kéo rèm ra cho sáng", "intent": "open_curtain"},
+  {"text": "thu rèm lại", "intent": "open_curtain"},
+  {"text": "nhìn mặt trời", "intent": "open_curtain"},
+  {"text": "tối quá đi", "intent": "open_curtain"},
+  {"text": "ánh sáng", "intent": "open_curtain"},
+
+  {"text": "đóng rèm lại", "intent": "close_curtain"},
+  {"text": "nắng quá", "intent": "close_curtain"},
+  {"text": "chói quá đi", "intent": "close_curtain"},
+  {"text": "kéo rèm che nắng", "intent": "close_curtain"},
+  {"text": "buông rèm xuống", "intent": "close_curtain"},
+  
+  {"text": "thời tiết hôm nay thế nào", "intent": "ask_weather"},
+  {"text": "trời có mưa không", "intent": "ask_weather"},
+  {"text": "nhiệt độ bao nhiêu", "intent": "ask_weather"},
+
+  {"text": "mấy giờ rồi", "intent": "ask_time"},
+  {"text": "xem giờ giúp", "intent": "ask_time"},
+
+  {"text": "thư giãn", "intent": "play_music"},
+  {"text": "làm gì cho vui hơn đi", "intent": "play_music"}
+]

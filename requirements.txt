@@ -1,0 +1,11 @@
+faster-whisper
+paho-mqtt
+SpeechRecognition
+pyaudio
+scikit-learn
+joblib
+numpy
+sounddevice
+soundfile
+edge-tts 
+asyncio
