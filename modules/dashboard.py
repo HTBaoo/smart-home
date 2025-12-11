@@ -210,6 +210,7 @@ def create_device_card(device_info):
     if d_type == 'light': icon_name = 'lightbulb'
     elif d_type == 'curtain': icon_name = 'curtains'
     elif d_type == 'fan': icon_name = 'wind_power'
+    elif d_type == 'door': icon_name = 'meeting_room'
 
     # Vẽ thẻ
     with ui.card().classes('w-48 items-center bg-gray-800 border border-gray-600 cursor-pointer transition-all hover:bg-gray-700') as card:
@@ -239,7 +240,7 @@ def handle_click(device_id):
     new_state = ""
     if d_type == "light" or d_type == "fan":
         new_state = "ON" if current_text == "OFF" else "OFF"
-    elif d_type == "curtain":
+    elif d_type == "curtain" or d_type == "door":
         new_state = "OPEN" if current_text == "ĐÓNG" else "CLOSE"
 
     # Gọi hàm gửi lệnh chung
@@ -296,11 +297,36 @@ def update_ui_from_state(device_id, state):
             lbl.text = display_text
             lbl.classes(remove='text-blue-400', add='text-gray-400')
 
+    elif d_type == "door":
+        display_text = "Mở" if state == "OPEN" else "ĐÓNG"
+        if state == "OPEN":
+            card.classes(remove='border-gray-600', add='border-green-400 shadow-lg shadow-green-500/50')
+            lbl.text = display_text
+            lbl.classes(remove='text-gray-400', add='text-green-400')
+            elements['icon'].classes(remove='text-gray-500', add='text-green-400')
+        else:
+            card.classes(remove='border-green-400 shadow-lg shadow-green-500/50', add='border-gray-600')
+            lbl.text = display_text
+            lbl.classes(remove='text-green-400', add='text-gray-400')
+            elements['icon'].classes(remove='text-green-400', add='text-gray-500')
+
 def add_log(text):
-    if 'log_container' in ui_refs:
-        with ui_refs['log_container']:
-            ui.label(f"> {text}").classes('text-green-400 font-mono text-sm')
-        ui_refs['log_area'].scroll_to(percent=1.0)
+    container = ui_refs.get('log_container')
+    log_area = ui_refs.get('log_area')
+    client = getattr(container, 'client', None) or getattr(container, '_client', None)
+    if not container or not log_area or not client:
+        return
+
+    async def _append():
+        try:
+            with container:
+                ui.label(f"> {text}").classes('text-green-400 font-mono text-sm')
+            log_area.scroll_to(percent=1.0)
+        except RuntimeError:
+            # Client có thể đã đóng; bỏ qua log
+            return
+
+    ui.run(_append(), client=client)
 
 # Chạy app
 if __name__ in {"__main__", "__mp_main__"}:

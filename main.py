@@ -162,11 +162,16 @@ def run_ai_logic():
 # ======================
 #   4. CHẠY CHƯƠNG TRÌNH
 # ======================
-ui.timer(
-    0.1,
-    lambda: threading.Thread(target=run_ai_logic, daemon=True).start(),
-    once=True,
-)
+_ai_thread_started = False
+
+def _start_ai_once():
+    global _ai_thread_started
+    if _ai_thread_started:
+        return
+    _ai_thread_started = True
+    threading.Thread(target=run_ai_logic, daemon=True).start()
+
+ui.timer(0.1, _start_ai_once, once=True)
 
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(title="Smart Home Hub", host="0.0.0.0", port=8888, reload=False)

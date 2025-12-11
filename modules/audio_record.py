@@ -20,8 +20,7 @@ class Recorder:
         
         try:
             with sr.Microphone() as source:
-                #self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                # timeout: Chờ 5s không nói gì thì thôi
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.8)
                 audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=10)
                 
                 # Lưu file tạm vào thư mục logs

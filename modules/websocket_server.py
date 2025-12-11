@@ -51,7 +51,6 @@ async def handler(websocket):
                     # Cập nhật giao diện NiceGUI trên máy chủ (Laptop)
                     if update_ui_callback:
                         update_ui_callback(device, state)
-                    await broadcast_message(json.dumps(data))
             except json.JSONDecodeError:
                 pass
     except websockets.exceptions.ConnectionClosed:
@@ -71,6 +70,8 @@ def start_loop(loop):
 def start():
     """Khởi động Server"""
     global loop
+    if loop and loop.is_running():
+        return
     loop = asyncio.new_event_loop()
     t = threading.Thread(target=start_loop, args=(loop,), daemon=True)
     t.start()
@@ -100,7 +101,7 @@ def send_command(device_id, state, location="living_room"):
         
     # Cập nhật UI Laptop
     if update_ui_callback:
-        update_ui_callback(device, state)
+        update_ui_callback(device_id, state)
 
 async def broadcast_message(message):
     if connected_clients:

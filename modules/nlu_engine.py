@@ -1,5 +1,6 @@
 import joblib
 import os
+import unicodedata
 from config import settings
 
 class NLUEngine:
@@ -13,7 +14,7 @@ class NLUEngine:
 
         # --- TỪ ĐIỂN VỊ TRÍ ---
         self.LOCATIONS = {
-            "living_room": ["phòng khách", "nhà ngoài", "sảnh"],
+            "living_room": ["phòng khách", "nhà ngoài", "sảnh", "cửa chính", "cửa ra vào"],
             "bedroom": ["phòng ngủ", "giường ngủ", "phòng con"],
             "kitchen": ["nhà bếp", "phòng ăn", "bếp"],
             "bathroom": ["nhà tắm", "vệ sinh", "toilet"],
@@ -47,13 +48,18 @@ class NLUEngine:
             
         return [c.strip() for c in commands if c.strip()]
 
+    def _normalize(self, text):
+        text = text.lower()
+        return "".join(ch for ch in unicodedata.normalize("NFD", text) if not unicodedata.combining(ch))
+
     def _extract_slot(self, text):
-        """Hàm tìm vị trí trong câu"""
+        """Hàm tìm vị trí trong câu (không phụ thuộc dấu)"""
         found_location = "unknown" # Mặc định không rõ ở đâu
+        norm_text = self._normalize(text)
         
         for loc_code, keywords in self.LOCATIONS.items():
             for kw in keywords:
-                if kw in text:
+                if kw in text or self._normalize(kw) in norm_text:
                     found_location = loc_code
                     break # Tìm thấy rồi thì thôi
             if found_location != "unknown":
