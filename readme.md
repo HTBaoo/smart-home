@@ -33,8 +33,11 @@ python app.py
 
 ## 📸 Hình ảnh dự án
 ![Sơ đồ nguyên lý](sodonguyenly.png)
-*(Chèn ảnh thực tế mô hình tại đây)*
+
 
 ## 👨‍💻 Tác giả
 - **Hà Văn Linh** - MSSV: 105200414
 - **Huỳnh Thái Bảo** - MSSV: 105200442
+
+##📜 Giấy phép
+Dự án mang tính học thuật, phi thương mại. Mọi quyền tác giả thuộc về nhóm sinh viên thực hiện.
