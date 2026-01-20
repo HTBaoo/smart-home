@@ -33,7 +33,7 @@ python app.py
 
 ## 📸 Hình ảnh dự án
 ![Sơ đồ nguyên lý](sodonguyenly.png)
-*(Chèn ảnh thực tế mô hình tại đây)*
+
 
 ## 👨‍💻 Tác giả
 - **Hà Văn Linh** - MSSV: 105200414
