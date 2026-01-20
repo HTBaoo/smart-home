@@ -21,11 +21,14 @@ class SkillEngine:
         return f"Hôm nay là {weekday}, ngày {now.day} tháng {now.month} năm {now.year}"
 
     def play_music(self):
-        """Mở nhạc (Demo mở Youtube hoặc ZingMP3)"""
-        # Bạn có thể thay link playlist yêu thích của bạn vào đây
+        """Mở nhạc trên máy tính (Youtube)"""
+        # Link nhạc Lofi chill
         music_url = "https://www.youtube.com/watch?v=jfKfPfyJRdk" 
-        webbrowser.open(music_url)
-        return "Đã mở nhạc thư giãn cho bạn"
+        try:
+            webbrowser.open(music_url)
+            return "Đã mở nhạc thư giãn cho bạn trên máy tính."
+        except:
+            return "Xin lỗi, tôi không mở được trình duyệt."
 
     def get_weather(self):
         """Lấy thời tiết (Cần API Key)"""
@@ -62,7 +65,7 @@ class SkillEngine:
             pop = int(current_data.get("pop", 0) * 100)       # Tỉ lệ mưa (Probability of Precipitation)
 
             # Tạo câu trả lời thông minh hơn (có thêm tỉ lệ mưa)
-            msg = f"Dự báo tại chỗ bạn, trời {desc} , nhiệt độ khoảng {temp} độ , độ ẩm trong khoảng {hum} phần trăm."
+            msg = f"Dự báo tại chỗ bạn, {desc} , nhiệt độ khoảng {temp} độ , độ ẩm trong khoảng {hum} phần trăm."
             
             if pop > 50:
                 msg += f" Lưu ý, khả năng mưa là {pop} phần trăm."

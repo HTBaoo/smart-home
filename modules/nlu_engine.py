@@ -1,5 +1,6 @@
 import joblib
 import os
+
 from config import settings
 
 class NLUEngine:
@@ -13,23 +14,24 @@ class NLUEngine:
 
         # --- TỪ ĐIỂN VỊ TRÍ ---
         self.LOCATIONS = {
-            "living_room": ["phòng khách", "nhà ngoài", "sảnh"],
-            "bedroom": ["phòng ngủ", "giường ngủ", "phòng con"],
+            "living_room": ["phòng khách", "nhà ngoài","phòng chính"],
+            "bedroom": ["phòng ngủ", "giường ngủ", "phòng con", "phần ngủ"],
             "kitchen": ["nhà bếp", "phòng ăn", "bếp"],
             "bathroom": ["nhà tắm", "vệ sinh", "toilet"],
+            "meeting_room":["sảnh", "cửa chính", "cửa ra vào"],
             "all": ["tất cả", "hết", "cả nhà", "toàn bộ"]
         }
         self.GREET = [
             "xin chào", "chào", "hello", "hi", "alo", "ê bot", 
-            "chào bạn", "chào em", "này", "hey", "có đó không"
+            "chào bạn", "chào em", "này", "hey", "có đó không",
+            "bot ơi", "dậy đi", "thức dậy", "nghe không"
         ]
-
     def _smart_split(self, text):
         """(Giữ nguyên hàm xử lý 'à không' và 'và' như bài trước)"""
         text = text.lower().strip()
         
         # 1. Xử lý "quay xe"
-        correction_keywords = ["à không", "nhầm", "ý lộn", "à quên"]
+        correction_keywords = ["à không", "nhầm", "ý lộn", "à quên", "sai rồi"]
         for kw in correction_keywords:
             if kw in text:
                 parts = text.split(kw)
@@ -44,13 +46,13 @@ class NLUEngine:
                 if kw in cmd: new_commands.extend(cmd.split(kw))
                 else: new_commands.append(cmd)
             commands = new_commands
-            
+        
         return [c.strip() for c in commands if c.strip()]
 
     def _extract_slot(self, text):
-        """Hàm tìm vị trí trong câu"""
+        """Hàm tìm vị trí trong câu không phụ thuộc dấu"""
         found_location = "unknown" # Mặc định không rõ ở đâu
-        
+      
         for loc_code, keywords in self.LOCATIONS.items():
             for kw in keywords:
                 if kw in text:
@@ -70,6 +72,7 @@ class NLUEngine:
 
         for sub_text in sub_sentences:
             # 1. Đoán Intent (Hành động)
+
             is_greet = False
             for greet in self.GREET:
                 # Kiểm tra chính xác hoặc từ mở đầu (ví dụ: "chào nhé")

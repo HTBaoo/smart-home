@@ -19,7 +19,8 @@ class STTEngine:
             return ""
         
         try:
-            segments, _ = self.model.transcribe(audio_path, beam_size=5, language="vi")
+            segments, _ = self.model.transcribe(audio_path, language="vi",vad_filter=True)
+            # segments, _ = self.model.transcribe(audio_path, beam_size=1, language="vi",vad_filter=True)
             text = "".join([s.text for s in segments]).strip()
             black_list = [
                 "subtitle by", "amara.org", "cảm ơn", "vietsub", 

@@ -1,172 +1,195 @@
-import threading
-from nicegui import ui
+import os
+import time
+import requests
+from pydub import AudioSegment
+from pydub.effects import normalize
+from gtts import gTTS  # Dùng Google TTS trực tiếp
 
-# ======================
-#   IMPORT MODULES
-# ======================
-import modules.websocket_server as ws_server
-import modules.dashboard as dashboard
-
-from modules.audio_record import Recorder
+# Import các module
+from modules.esp32_mic import ESP32Mic
 from modules.stt_whisper import STTEngine
 from modules.nlu_engine import NLUEngine
 from modules.skills import SkillEngine
-from modules.tts_edge import TTSEngine
-LOCATION_ID = {
-    "living_room": "living",  # living_light
-    "bedroom": "bed",         # bed_light
-    "kitchen": "kitchen",     # kitchen_light
-    "bathroom": "bath",
-    "all": "all",
-    None: "living"            # Mặc định
+
+# ======================
+#   CẤU HÌNH (SỬA IP TẠI ĐÂY)
+# ======================
+ESP32_PORT = 5000 
+
+# ⚠️ QUAN TRỌNG: Đổi IP bên dưới thành IP thật của máy Home Assistant
+# Nếu chạy cùng máy tính thì để "localhost", nếu khác máy thì điền IP (vd: 192.168.1.12)
+HA_URL = "http://homeassistant.local:8123/"  # <--- SỬA DÒNG NÀY
+
+# Token của bạn (Đã đúng cú pháp)
+TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlZGZlMzVmZDQ2MGY0ZmMyYmY4NDliNmI0YjMyMWQyMiIsImlhdCI6MTc2ODg5NzAzNiwiZXhwIjoyMDg0MjU3MDM2fQ.QW4tMUnoXaFYLpDd2Os4QcCXFm-hBC-l6AOOUr7O0wM"
+
+HA_LIGHT_MAP = {
+    "living_light": "light.phong_khach",
+    "bed_light": "light.phong_ngu",
+    "kitchen_light": "light.nha_bep"
 }
-LOCATION_VN = {
-    "living_room": "phòng khách",
-    "bedroom": "phòng ngủ",
-    "kitchen": "nhà bếp",
-    "bathroom": "nhà tắm",
-    "all": "toàn bộ căn nhà",
-    "unknown": ""
-            }
-ALL_ROOM_PREFIXES = ["living", "bed", "kitchen"]
-CONTROLL_VN = { "ON" : "bật", "OFF" : "tắt", "OPEN" : "mở", "CLOSE" : "đóng" }
-# ======================
-#   1. KHỞI TẠO UI
-# ======================
-dashboard.init_interface()
-# ======================
-#   2. CALLBACK ĐỒNG BỘ
-# ======================
-def on_state_change(device, state):
-    """Callback từ WebSocket khi ESP gửi trạng thái về."""
-    dashboard.update_ui_from_state(device, state)
-    dashboard.add_log(f"Đồng bộ: {device} → {state}")
 
+# ======================
+#   XỬ LÝ ÂM THANH
+# ======================
+def convert_to_esp32_format(input_file, output_file="esp32_out.wav"):
+    """
+    Convert âm thanh sang chuẩn WAV 16kHz, 16bit, Mono cho ESP32.
+    """
+    try:
+        if not os.path.exists(input_file):
+            print("❌ Lỗi: Không tìm thấy file đầu vào.")
+            return None
 
-ws_server.set_ui_callback(on_state_change)
+        audio = AudioSegment.from_file(input_file)
+        # 1. Kích âm lượng
+        audio = normalize(audio)
+        # 2. Ép chuẩn 16k Mono
+        audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+        audio.export(output_file, format="wav")
+        return output_file
+    except Exception as e:
+        print(f"❌ Lỗi Convert Audio (Cần cài FFmpeg): {e}")
+        return None
+class HomeAssistantClient:
+    def __init__(self, base_url, token):
+        self.base_url = base_url.rstrip("/")
+        self.headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    
+    def turn_on_light(self, entity_id): return self._call("light", "turn_on", entity_id)
+    def turn_off_light(self, entity_id): return self._call("light", "turn_off", entity_id)
 
-# hàm lấy ID 
+    def _call(self, domain, service, entity_id):
+        url = f"{self.base_url}/api/services/{domain}/{service}"
+        print(f"🔌 Gọi HA: {service} -> {entity_id}")
+        try:
+            resp = requests.post(url, headers=self.headers, json={"entity_id": entity_id}, timeout=3)
+            if resp.status_code == 200:
+                print("✅ HA: Thành công!")
+                return True
+            else:
+                print(f"❌ HA Lỗi: {resp.status_code} - {resp.text}")
+                return False
+        except Exception as e:
+            print(f"❌ Lỗi kết nối HA: {e}")
+            return False
+
+# ======================
+#   HỖ TRỢ
+# ======================
+VALID_LOCATIONS = ["living_room", "bedroom", "kitchen"]
+TTS_LOCATION = {"living_room": "phòng khách", "bedroom": "phòng ngủ", "kitchen": "nhà bếp", None: "phòng khách"}
+
 def get_device_id(device_type, location):
-    prefix = LOCATION_ID.get(location, "living")
+    prefix = {"living_room": "living", "bedroom": "bed", "kitchen": "kitchen"}.get(location, "living")
     return f"{prefix}_{device_type}"
+
 # ======================
-#   3. AI BACKGROUND THREAD
+#   MAIN LOOP
 # ======================
 def run_ai_logic():
-    print("🚀 AI Thread bắt đầu...")
-
+    print("🚀 AI System Starting...")
     try:
-        # --- BẮT ĐẦU SERVER WebSocket ---
-        ws_server.start()
-
-        # --- MODULE AI ---
-        recorder = Recorder()
-        stt = STTEngine()         # 🟢 Bạn sẽ gắn Whisper retrain ở đây
+        recorder = ESP32Mic(port=ESP32_PORT)
+        stt = STTEngine()
         nlu = NLUEngine()
-        # tts = TTSEdgeEngine()
         skills = SkillEngine()
-        tts = TTSEngine()
-        dashboard.add_log("Tôi đã sẵn sàng")
-        tts.speak("Tôi đã sẵn sàng.")
-
+        ha = HomeAssistantClient(HA_URL, TOKEN)
+        print(f"✅ System Ready! Port {ESP32_PORT}")
     except Exception as e:
-        print(f"Lỗi khởi động AI: {e}")
+        print(f"❌ Lỗi Khởi tạo: {e}")
         return
 
-    # --- VÒNG LẶP XỬ LÝ GIỌNG NÓI ---
     while True:
         try:
+            print("\n🎧 Đang chờ lệnh từ ESP32...")
+            
+            # 1. Nhận Audio
             audio_path = recorder.listen()
-            if not audio_path:
-                continue
-            # --- STT: Speech → Text ---
+            print(f"🎤 Nhận file: {audio_path}")
+
+            # 2. STT
             text = stt.transcribe(audio_path)
             if not text:
+                print("❌ Không nghe rõ")
                 continue
-            dashboard.add_log(f"Bạn nói: {text}")
-            # --- NLU ---
+            print(f"🗣 User: {text}")
+
+            # 3. NLU
             commands = nlu.predict(text)
-            if not commands:
-                tts.speak("Xin lỗi, tôi chưa hiểu.")
-                continue
-            # --- XỬ LÝ LỆNH ---
-
             response_text = ""
-
-            for cmd in commands:
-                intent = cmd.get("intent")
-                location = cmd.get("location") or "living_room"
-                vn_loc = LOCATION_VN.get(location, "")
-                
-                target_id = None
-                action = None
-                device_name = ""
-                
-                # if intent == "turn_on":
-                #     response_text += f"Đã bật đèn {vn_loc}"
-                #     target_id = get_device_id("light", location)
-                #     action = "ON" 
-                #     device_name = "đèn"
-                #     ws_server.send_command("light", "ON", location)
-                # elif intent == "turn_off":
-                #     response_text += f"Đã tắt đèn {vn_loc} "
-                #     ws_server.send_command("light", "OFF", location)
-                # elif intent == "open_curtain":
-                #     response_text += f"Đang mở rèm {vn_loc} "
-                #     ws_server.send_command("curtain", "OPEN", location)
-                # elif intent == "close_curtain":
-                #     response_text += f"Đang đóng rèm {vn_loc} "
-                #     ws_server.send_command("curtain", "CLOSE", location)
-                if intent in ["turn_on", "turn_off"]:
-                    # Mặc định là đèn, nếu muốn mở rộng quạt thì thêm logic check text
-                    target_id = get_device_id("light", location)
-                    action = "ON" if intent == "turn_on" else "OFF"
-                    device_name_vn = "đèn"
-
-                elif intent in ["open_curtain", "close_curtain"]:
-                    target_id = get_device_id("curtain", location)
-                    action = "OPEN" if intent == "open_curtain" else "CLOSE"
-                    device_name_vn = "rèm"
-
-                # --- GỬI LỆNH XUỐNG WEBSOCKET ---
-                if target_id and action:
-                    # 1. Gửi xuống WebSocket (Broadcast cho ESP32 & Web)
-                    # Hàm này trong ws_server cần nhận ID chuẩn (vd: bed_light)
-                    ws_server.send_command(target_id, action)
-                    controll = CONTROLL_VN.get(action)
-                    # 2. Tạo câu phản hồi
-                    state_vn = f"{controll}" 
-                    # if action in ["ON", "OPEN"] 
-                    # else state_vn = f"{controll}"
-                    response_text += f"Đã {state_vn} {device_name_vn} {vn_loc}. "
+            
+            if not commands:
+                response_text = "Xin lỗi, tôi chưa hiểu."
+            else:
+                # NLU có thể trả về nhiều lệnh (VD: Chào + Bật đèn)
+                for cmd in commands:
+                    intent = cmd.get("intent")
+                    location = cmd.get("location") 
                     
-                    # 3. Cập nhật UI ngay lập tức cho mượt (Optimistic UI)
-                    dashboard.update_ui_from_state(target_id, action)
-                elif intent == "ask_weather":
-                    response_text += f"{skills.get_weather()}."
-                elif intent == "ask_time":
-                    response_text += f"Bây giờ là {skills.get_time()}."
-                elif intent == "ask_date":
-                    response_text += f"{skills.get_date()}."
-                elif intent == "play_music":
-                    response_text += f"{skills.play_music()}"
-            if response_text:
-                tts.speak(response_text)
+                    # --- XỬ LÝ CHÀO HỎI (MỚI THÊM) ---
+                    if intent == "greet":
+                        response_text += "Chào bạn, tôi có thể giúp gì? "
 
+                    # --- XỬ LÝ ĐÈN ---
+                    elif intent in ["turn_on", "turn_off"]:
+                        if location not in VALID_LOCATIONS:
+                            response_text += "Bạn muốn bật đèn ở đâu? "
+                            continue
+                        
+                        target_id = get_device_id("light", location)
+                        ha_entity = HA_LIGHT_MAP.get(target_id)
+                        
+                        if ha_entity:
+                            if intent == "turn_on": ha.turn_on_light(ha_entity)
+                            else: ha.turn_off_light(ha_entity)
+                        else:
+                            print(f"⚠️ Không tìm thấy Entity ID: {target_id}")
+
+                        # Gửi lệnh Relay
+                        recorder.send_command(f"{target_id}:{'ON' if intent == 'turn_on' else 'OFF'}")
+                        
+                        loc_vn = TTS_LOCATION.get(location)
+                        act_vn = "bật" if intent == "turn_on" else "tắt"
+                        response_text += f"Đã {act_vn} đèn {loc_vn}. "
+                        
+                    # --- SKILLS KHÁC ---
+                    elif intent == "ask_time": response_text += f"Bây giờ là {skills.get_time()}. "
+                    elif intent == "ask_date": response_text += skills.get_date()
+                    elif intent == "ask_weather": response_text += skills.get_weather()
+            if not response_text: response_text = "Đã thực hiện."
+            print(f"🤖 Bot: {response_text}")
+
+            # 4. TTS & GỬI ÂM THANH
+            try:
+                temp_mp3 = "response_temp.mp3"
+                final_wav = "response_final.wav"
+                
+                # Tạo giọng nói Google
+                tts = gTTS(text=response_text, lang='vi')
+                tts.save(temp_mp3)
+
+                # Convert và Gửi
+                if os.path.exists(temp_mp3):
+                    valid_wav = convert_to_esp32_format(temp_mp3, final_wav)
+                    if valid_wav:
+                        with open(valid_wav, "rb") as f:
+                            wav_data = f.read()
+                        recorder.send_audio(wav_data)
+                    else:
+                        print("❌ Lỗi convert âm thanh.")
+                else:
+                    print("⚠️ Lỗi tạo file TTS.")
+
+            except Exception as e:
+                print(f"❌ Lỗi TTS: {e}")
+
+        except KeyboardInterrupt:
+            print("\n⛔ Dừng hệ thống.")
+            break
         except Exception as e:
-            # Không để AI thread chết
-            dashboard.add_log(f"⚠ Lỗi AI loop: {e}")
-            continue
+            print(f"❌ Lỗi vòng lặp: {e}")
+            time.sleep(1)
 
-
-# ======================
-#   4. CHẠY CHƯƠNG TRÌNH
-# ======================
-ui.timer(
-    0.1,
-    lambda: threading.Thread(target=run_ai_logic, daemon=True).start(),
-    once=True,
-)
-
-if __name__ in {"__main__", "__mp_main__"}:
-    ui.run(title="Smart Home Hub", host="0.0.0.0", port=8888, reload=False)
+if __name__ == "__main__":
+    run_ai_logic()

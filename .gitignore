@@ -1,2 +1,17 @@
-models/stt_whisper/model.bin
-models/stt_whisper/model.bin
+# Bỏ qua các file biên dịch của Python
+__pycache__/
+*.pyc
+
+# Bỏ qua môi trường ảo
+venv/
+env/
+
+# Bỏ qua file cấu hình của Arduino IDE
+.vscode/
+*.bin
+*.elf
+
+# QUAN TRỌNG: Bỏ qua file chứa mật khẩu Wifi/API Key
+secrets.h
+config.py
+.env

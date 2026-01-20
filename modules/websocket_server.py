@@ -12,7 +12,8 @@ loop = None
 # Đây là nơi duy nhất chứa sự thật: Đèn đang tắt hay mở?
 device_states = {
     "light": "OFF",
-    "curtain": "CLOSE"
+    "curtain": "CLOSE",
+    "door":"CLOSE"
 }
 
 # Callback để gọi cập nhật giao diện bên Dashboard (sẽ được gán từ main)
@@ -51,7 +52,7 @@ async def handler(websocket):
                     # Cập nhật giao diện NiceGUI trên máy chủ (Laptop)
                     if update_ui_callback:
                         update_ui_callback(device, state)
-                    await broadcast_message(json.dumps(data))
+                    #await broadcast_message(json.dumps(data))
             except json.JSONDecodeError:
                 pass
     except websockets.exceptions.ConnectionClosed:
@@ -71,6 +72,8 @@ def start_loop(loop):
 def start():
     """Khởi động Server"""
     global loop
+    if loop and loop.is_running():
+        return
     loop = asyncio.new_event_loop()
     t = threading.Thread(target=start_loop, args=(loop,), daemon=True)
     t.start()
@@ -100,8 +103,146 @@ def send_command(device_id, state, location="living_room"):
         
     # Cập nhật UI Laptop
     if update_ui_callback:
-        update_ui_callback(device, state)
+        update_ui_callback(device_id, state)
 
 async def broadcast_message(message):
     if connected_clients:
         await asyncio.gather(*(client.send(message) for client in connected_clients), return_exceptions=True)
+# import asyncio
+# import websockets
+# import threading
+# import json
+
+# # --- CẤU HÌNH ---
+# PORT = 8765
+# connected_clients = set()
+# loop = None
+
+# # --- TRẠNG THÁI THIẾT BỊ (Shared State) ---
+# device_states = {
+#     "light": "OFF",
+#     "curtain": "CLOSE",
+#     "door": "CLOSE",
+#     "fan": "OFF"
+# }
+
+# # Callback để update UI (NiceGUI)
+# update_ui_callback = None
+
+# def set_ui_callback(callback_func):
+#     """Dashboard đăng ký callback UI"""
+#     global update_ui_callback
+#     update_ui_callback = callback_func
+
+# # ================== WEBSOCKET CORE ==================
+
+# async def handler(websocket):
+#     print(f"🔗 Client kết nối: {websocket.remote_address}")
+#     connected_clients.add(websocket)
+
+#     try:
+#         # Sync trạng thái ban đầu
+#         await websocket.send(json.dumps({
+#             "type": "sync_state",
+#             "data": device_states
+#         }))
+
+#         async for message in websocket:
+#             print(f"📩 Nhận: {message}")
+#             try:
+#                 data = json.loads(message)
+
+#                 if "device" in data and "state" in data:
+#                     device = data["device"]
+#                     state = data["state"]
+#                     location = data.get("location")
+#                     source = data.get("source", "client")
+
+#                     # Update state
+#                     device_states[device] = state
+
+#                     payload = {
+#                         "device": device,
+#                         "state": state,
+#                         "location": location,
+#                         "source": source
+#                     }
+
+#                     # Broadcast
+#                     await broadcast_message(json.dumps(payload))
+
+#                     # Update UI local (NiceGUI)
+#                     if update_ui_callback:
+#                         update_ui_callback(device, state)
+
+#             except json.JSONDecodeError:
+#                 print("⚠️ JSON lỗi")
+
+#     except websockets.exceptions.ConnectionClosed:
+#         print("❌ Client ngắt kết nối")
+
+#     finally:
+#         connected_clients.discard(websocket)
+
+# async def broadcast_message(message):
+#     if connected_clients:
+#         await asyncio.gather(
+#             *(client.send(message) for client in connected_clients),
+#             return_exceptions=True
+#         )
+
+# async def run_server():
+#     print(f"🚀 WebSocket Hub chạy tại ws://0.0.0.0:{PORT}")
+#     async with websockets.serve(handler, "0.0.0.0", PORT):
+#         await asyncio.Future()  # chạy vĩnh viễn
+
+# def _start_loop(loop):
+#     asyncio.set_event_loop(loop)
+#     loop.run_until_complete(run_server())
+
+# # ================== PUBLIC API (GIỮ NGUYÊN) ==================
+
+# def start():
+#     """
+#     Được gọi từ dashboard.py
+#     Khởi động websocket server ở thread riêng
+#     """
+#     global loop
+#     if loop and loop.is_running():
+#         return
+
+#     loop = asyncio.new_event_loop()
+#     t = threading.Thread(
+#         target=_start_loop,
+#         args=(loop,),
+#         daemon=True
+#     )
+#     t.start()
+
+# def send_command(device_id, state, location=None):
+#     """
+#     Được gọi từ:
+#     - Dashboard
+#     - AI
+#     - Whisper
+#     """
+#     global loop
+
+#     device_states[device_id] = state
+
+#     payload = {
+#         "device": device_id,
+#         "state": state,
+#         "location": location,
+#         "source": "python"
+#     }
+
+#     if loop and loop.is_running():
+#         asyncio.run_coroutine_threadsafe(
+#             broadcast_message(json.dumps(payload)),
+#             loop
+#         )
+
+#     # Update UI local
+#     if update_ui_callback:
+#         update_ui_callback(device_id, state)
