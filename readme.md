@@ -39,6 +39,6 @@ python app.py
 - **Hà Văn Linh** - MSSV: 105200414
 - **Huỳnh Thái Bảo** - MSSV: 105200442
 
-##📜 Giấy phép
+## 📜 Giấy phép
 Dự án mang tính học thuật, phi thương mại. Mọi quyền tác giả thuộc về nhóm sinh viên thực hiện.
 
