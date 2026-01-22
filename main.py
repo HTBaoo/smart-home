@@ -15,13 +15,9 @@ from modules.skills import SkillEngine
 #   CẤU HÌNH (SỬA IP TẠI ĐÂY)
 # ======================
 ESP32_PORT = 5000 
-
-# ⚠️ QUAN TRỌNG: Đổi IP bên dưới thành IP thật của máy Home Assistant
-# Nếu chạy cùng máy tính thì để "localhost", nếu khác máy thì điền IP (vd: 192.168.1.12)
 HA_URL = "http://homeassistant.local:8123/"  # <--- SỬA DÒNG NÀY
-
-# Token của bạn (Đã đúng cú pháp)
-TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJlZGZlMzVmZDQ2MGY0ZmMyYmY4NDliNmI0YjMyMWQyMiIsImlhdCI6MTc2ODg5NzAzNiwiZXhwIjoyMDg0MjU3MDM2fQ.QW4tMUnoXaFYLpDd2Os4QcCXFm-hBC-l6AOOUr7O0wM"
+# Token của bạn lấy từ homneassistant
+TOKEN = ""
 
 HA_LIGHT_MAP = {
     "living_light": "light.phong_khach",
